@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Private Chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+      }
+      #loginScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .login-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        text-align: center;
+      }
+      #errorMessage {
+        color: red;
+        margin: 10px 0;
+        display: none;
+      }
+      .chat-container {
+        display: flex;
+        height: 90vh;
+        gap: 20px;
+      }
+      .friend-list {
+        width: 250px;
+        display: flex;
+        flex-direction: column;
+      }
+      .add-friend {
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      .add-friend input {
+        width: 140px;
+        padding: 5px;
+        margin-right: 5px;
+      }
+      .friends {
+        flex: 1;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow-y: auto;
+      }
+      .friend-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        cursor: pointer;
+      }
+      .friend-item:hover {
+        background: #f5f5f5;
+      }
+      .friend-item.active {
+        background: #e3f2fd;
+      }
+      .friend-item.online .status {
+        color: #4CAF50;
+      }
+      .friend-item.offline .status {
+        color: #999;
+      }
+      .chat-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-header {
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .logout-btn {
+        padding: 5px 10px;
+        background: #ff4444;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #messages {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+      }
+      .message-input {
+        display: flex;
+        gap: 10px;
+      }
+      .message-input input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .message-input button {
+        padding: 10px 20px;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .message {
+        padding: 8px;
+        margin: 4px 0;
+        border-radius: 4px;
+        max-width: 70%;
+        position: relative;
+      }
+      .message.sent {
+        background-color: #e3f2fd;
+        margin-left: auto;
+      }
+      .message.received {
+        background-color: #f5f5f5;
+        margin-right: auto;
+      }
+      .message .timestamp {
+        font-size: 0.8em;
+        color: #666;
+        margin-left: 10px;
+      }
+      .message.deleted {
+        color: #999;
+        font-style: italic;
+      }
+      .delete-btn {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #ff4444;
+        cursor: pointer;
+        display: none;
+      }
+      .message:hover .delete-btn {
+        display: block;
+      }
+      .remove-friend {
+        padding: 2px 6px;
+        background: #ff4444;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        display: none;
+      }
+      .friend-item:hover .remove-friend {
+        display: block;
+      }
+      .phone-number {
+        font-size: 0.8em;
+        color: #666;
+      }
+      .no-chat-selected {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        color: #666;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loginScreen">
+      <div class="login-box">
+        <h2>Enter Access Key</h2>
+        <input type="password" id="accessKey" placeholder="Enter your key" />
+        <button onclick="authenticate()">Login</button>
+        <div id="errorMessage">Invalid access key</div>
+      </div>
+    </div>
+
+    <div class="chat-container">
+      <div class="friend-list">
+        <div class="add-friend">
+          <input type="text" id="phoneInput" placeholder="Enter phone number" />
+          <button onclick="addFriend()">Add</button>
+        </div>
+        <div class="friends" id="friendsList"></div>
+      </div>
+      
+      <div class="chat-area">
+        <div class="chat-header">
+          <h2 id="loggedInUser">Logged in As: </h2> <!-- Placeholder added -->
+          <h3>Chat with: <span id="currentChatUser">No user selected</span></h3>
+          <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+        
+        <div id="messages">
+          <div class="no-chat-selected">
+            Select a friend to start chatting
+          </div>
+        </div>
+        <div class="message-input">
+          <input type="text" id="message" placeholder="Type a message..." disabled />
+          <button id="sendBtn" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      let socket;
+      let currentChat = null;
+      let username = '';
+      let myPhone = '';
+
+      async function authenticate() {
+        const keyInput = document.getElementById('accessKey');
+        const key = keyInput.value.trim();
+        
+        initializeSocket(key);
+      }
+
+      function initializeSocket(key) {
+        // Initialize socket with auth token
+        socket = io({
+          auth: {
+            token: key
+          }
+        });
+
+        socket.on("connect_error", (err) => {
+          document.getElementById('errorMessage').style.display = 'block';
+        });
+
+        socket.on("connect", () => {
+          document.getElementById('loginScreen').style.display = 'none';
+          setupSocketListeners();
+        });
+      }
+
+      function setupSocketListeners() {
+        const sendBtn = document.getElementById("sendBtn");
+        const messageInput = document.getElementById("message");
+
+        // Handle friend list updates
+        socket.on("friend-list", (data) => {
+          updateFriendsList(data.friends);
+        });
+
+        // Handle new friend added
+        socket.on("friend-added", (friend) => {
+          addFriendToList(friend);
+        });
+
+        // Handle friend removed
+        socket.on("friend-removed", (phoneNumber) => {
+          removeFriendFromList(phoneNumber);
+        });
+
+        // Handle friend error
+        socket.on("friend-error", (message) => {
+          alert(message);
+        });
+
+        // Handle private messages
+        socket.on("private-message", (data) => {
+          if (currentChat === data.fromPhone || currentChat === data.toPhone) {
+            appendMessage(data);
+          }
+        });
+
+        // Handle message history
+        socket.on("message-history", (data) => {
+          const messagesDiv = document.getElementById('messages');
+          messagesDiv.innerHTML = '';
+          data.messages.forEach(msg => {
+            appendMessage(msg);
+          });
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+
+        // Handle message deletion
+        socket.on("message-deleted", (data) => {
+          const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
+          if (messageElement) {
+            messageElement.classList.add('deleted');
+            messageElement.innerHTML = '<i>Message deleted</i>';
+          }
+        });
+
+        // Handle user status updates
+        socket.on("user-connected", (username) => {
+          updateUserStatus(username, true);
+        });
+
+        socket.on("user-disconnected", (username) => {
+          updateUserStatus(username, false);
+        });
+
+        // Handle send button click
+        sendBtn.addEventListener("click", () => {
+          const message = messageInput.value.trim();
+          if (message && currentChat) {
+            socket.emit("private-message", {
+              to: currentChat,
+              message: message
+            });
+            messageInput.value = '';
+          }
+        });
+
+        // Handle Enter key
+        messageInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            sendBtn.click();
+          }
+        });
+      }
+
+      function updateFriendsList(friends) {
+        const friendsList = document.getElementById('friendsList');
+        friendsList.innerHTML = '';
+        friends.forEach(friend => addFriendToList(friend));
+      }
+
+      function addFriendToList(friend) {
+        const friendsList = document.getElementById('friendsList');
+        const friendDiv = document.createElement('div');
+        friendDiv.className = `friend-item ${friend.online ? 'online' : 'offline'}`;
+        friendDiv.dataset.phone = friend.phone;
+
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = `
+          <div>${friend.username}</div>
+          <div class="phone-number">${friend.phone}</div>
+          <div class="status">${friend.online ? '● Online' : '○ Offline'}</div>
+        `;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-friend';
+        removeBtn.textContent = '×';
+        removeBtn.onclick = (e) => {
+          e.stopPropagation();
+          removeFriend(friend.phone);
+        };
+
+        friendDiv.appendChild(infoDiv);
+        friendDiv.appendChild(removeBtn);
+        friendDiv.onclick = () => startChat(friend);
+        friendsList.appendChild(friendDiv);
+      }
+
+      function removeFriendFromList(phoneNumber) {
+        const friendElement = document.querySelector(`.friend-item[data-phone="${phoneNumber}"]`);
+        if (friendElement) {
+          friendElement.remove();
+        }
+      }
+
+      function updateUserStatus(username, online) {
+        // Update status in friends list
+        document.querySelectorAll('.friend-item').forEach(item => {
+          if (item.querySelector('div').textContent === username) {
+            item.className = `friend-item ${online ? 'online' : 'offline'}`;
+            item.querySelector('.status').textContent = online ? '● Online' : '○ Offline';
+          }
+        });
+      }
+
+      function startChat(friend) {
+        currentChat = friend.phone;
+        document.getElementById('currentChatUser').textContent = friend.username;
+        document.getElementById('message').disabled = false;
+        document.getElementById('sendBtn').disabled = false;
+
+        document.querySelectorAll('.friend-item').forEach(item => {
+          item.classList.remove('active');
+          if (item.dataset.phone === friend.phone) {
+            item.classList.add('active');
+          }
+        });
+
+        socket.emit('get-chat-history', { with: friend.phone });
+      }
+
+      function addFriend() {
+        const phoneInput = document.getElementById('phoneInput');
+        const phoneNumber = phoneInput.value.trim();
+        if (phoneNumber) {
+          socket.emit("add-friend", phoneNumber);
+          phoneInput.value = '';
+        }
+      }
+
+      function removeFriend(phoneNumber) {
+        if (confirm('Are you sure you want to remove this friend?')) {
+          socket.emit("remove-friend", phoneNumber);
+          if (currentChat === phoneNumber) {
+            currentChat = null;
+            document.getElementById('currentChatUser').textContent = 'No user selected';
+            document.getElementById('message').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('messages').innerHTML = '<div class="no-chat-selected">Select a friend to start chatting</div>';
+          }
+        }
+      }
+
+      function formatTimestamp(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleString();
+      }
+
+      function appendMessage(data) {
+        const messagesDiv = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${data.from === username ? 'sent' : 'received'}`;
+        messageDiv.dataset.messageId = data.messageId;
+
+        const messageContent = document.createElement('div');
+        messageContent.textContent = data.message;
+
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = formatTimestamp(data.timestamp);
+
+        messageDiv.appendChild(messageContent);
+        messageDiv.appendChild(timestamp);
+
+        if (data.from === username) {
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'delete-btn';
+          deleteBtn.textContent = '×';
+          deleteBtn.onclick = () => deleteMessage(data.messageId);
+          messageDiv.appendChild(deleteBtn);
+        }
+
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      function deleteMessage(messageId) {
+        socket.emit("delete-message", {
+          messageId: messageId,
+          with: currentChat
+        });
+      }
+
+      function logout() {
+        if (confirm('Are you sure you want to logout?')) {
+          socket.emit("logout");
+          window.location.reload();
+        }
+      }
+
+      // Handle access key input with Enter key
+      document.getElementById('accessKey').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          authenticate();
+        }
+      });
+       // Assuming you have a variable 'username' and 'currentChatUser' updated elsewhere in your JS:
+document.getElementById('loggedInUser').textContent = `Logged in As: ${username}`;
+
+// When updating the current chat user:
+document.getElementById('currentChatUser').textContent = currentChatUsername; // currentChatUsername should be the variable holding the name of the user being chatted with
+
+      // Handle phone input with Enter key
+      document.getElementById('phoneInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          addFriend();
+        }
+      });
+    </script>
+  </body>
+</html> 
